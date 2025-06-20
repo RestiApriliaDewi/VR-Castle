@@ -1,0 +1,334 @@
+<html>
+  <head>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+    <style>
+      .control-btn {
+        position: fixed;
+        width: 40px;
+        height: 40px;
+        background: rgba(0,0,0,0.5);
+        color: white;
+        font-size: 24px;
+        text-align: center;
+        line-height: 40px;
+        border-radius: 5px;
+        user-select: none;
+      }
+      #btn-up { top: 10px; left: 60px; }
+      #btn-down { top: 60px; left: 60px; }
+      #btn-left { top: 35px; left: 10px; }
+      #btn-right { top: 35px; left: 110px; }
+    </style>
+    <script>
+      AFRAME.registerComponent('move-on-click', {
+        schema: { to: { type: 'vec3' } },
+        init: function () {
+          // Simpan posisi awal dengan mengkloning object
+          this.originalPosition = Object.assign({}, this.el.getAttribute('position'));
+          this.targetPosition = this.data.to;
+          this.isAtTarget = false;
+          
+          this.el.addEventListener('click', () => {
+            console.log('Clicked!', this.el.id);
+            console.log('Current isAtTarget:', this.isAtTarget);
+            console.log('Original position:', this.originalPosition);
+            console.log('Target position:', this.targetPosition);
+            
+            let destination;
+            
+            if (this.isAtTarget) {
+              // Kembali ke posisi awal
+              destination = this.originalPosition;
+              this.isAtTarget = false;
+              console.log('Moving back to original');
+            } else {
+              // Pergi ke posisi target
+              destination = this.targetPosition;
+              this.isAtTarget = true;
+              console.log('Moving to target');
+            }
+            
+            console.log('Destination:', destination);
+            
+            // Hapus animasi lama jika ada
+            this.el.removeAttribute('animation__move');
+            
+            // Mulai animasi baru
+            this.el.setAttribute('animation__move', {
+              property: 'position',
+              to: `${destination.x} ${destination.y} ${destination.z}`,
+              dur: 2000,
+              easing: 'easeInOutQuad'
+            });
+          });
+        }
+      });
+
+      AFRAME.registerComponent('show-questions', {
+        init: function () {
+          this.el.addEventListener('click', () => {
+            const pertanyaan = document.querySelector('#pertanyaan-garrett');
+            const isVisible = pertanyaan.getAttribute('visible');
+            
+            // Toggle visibility
+            pertanyaan.setAttribute('visible', !isVisible);
+            
+            console.log('Garrett clicked! Questions visible:', !isVisible);
+          });
+        }
+      });
+
+      AFRAME.registerComponent('show-semangat', {
+        init: function () {
+          this.el.addEventListener('click', () => {
+            console.log('Elle clicked!');
+            const semangatText = document.querySelector('#semangat-text');
+            
+            // Show text
+            semangatText.setAttribute('visible', true);
+            
+            // Hide text after 2 seconds
+            setTimeout(() => {
+              semangatText.setAttribute('visible', false);
+            }, 2000);
+          });
+        }
+      });
+
+      // Komponen untuk memaksa animasi GLB berjalan
+      AFRAME.registerComponent('force-animate', {
+        init: function () {
+          this.el.addEventListener('model-loaded', () => {
+            console.log('Model loaded:', this.el.id);
+            
+            // Tunggu sebentar lalu coba berbagai cara
+            setTimeout(() => {
+              const model = this.el.getObject3D('mesh');
+              
+              if (model) {
+                console.log('Model object found for:', this.el.id);
+                
+                // Cek mixer yang sudah ada
+                let mixer = this.el.components['animation-mixer'];
+                if (!mixer) {
+                  // Buat mixer baru jika belum ada
+                  this.el.setAttribute('animation-mixer', '');
+                  mixer = this.el.components['animation-mixer'];
+                }
+                
+                if (mixer && mixer.mixer) {
+                  console.log('Mixer ready for:', this.el.id);
+                  
+                  // Traverse untuk cari animasi
+                  model.traverse((child) => {
+                    if (child.animations && child.animations.length > 0) {
+                      console.log('Found animations in child:', child.animations.length);
+                      child.animations.forEach((clip, i) => {
+                        console.log(`Animation ${i}:`, clip.name, 'duration:', clip.duration);
+                        const action = mixer.mixer.clipAction(clip);
+                        action.play();
+                      });
+                    }
+                  });
+                  
+                  // Cek animasi di root
+                  if (model.animations && model.animations.length > 0) {
+                    console.log('Found root animations:', model.animations.length);
+                    model.animations.forEach((clip, i) => {
+                      console.log(`Root animation ${i}:`, clip.name, 'duration:', clip.duration);
+                      const action = mixer.mixer.clipAction(clip);
+                      action.setLoop(THREE.LoopRepeat);
+                      action.play();
+                    });
+                  }
+                  
+                  // Paksa update mixer
+                  mixer.mixer.timeScale = 1;
+                }
+              }
+            }, 500);
+          });
+        }
+      });
+
+      AFRAME.registerComponent('jump-on-click', {
+        init: function () {
+          this.el.addEventListener('click', () => {
+            // Reset ke posisi awal dulu
+            this.el.setAttribute('position', '-3 0 4');
+            
+            // Hapus animasi lama
+            this.el.removeAttribute('animation');
+            
+            // Tunggu sebentar lalu mulai animasi baru
+            setTimeout(() => {
+              this.el.setAttribute('animation', {
+                property: 'position',
+                to: '-3 3 4',
+                dur: 300,
+                easing: 'easeOutQuad',
+                dir: 'alternate',
+                loop: 1
+              });
+            }, 50);
+          });
+        }
+      });
+
+      function moveCamera(direction) {
+        const rig = document.querySelector('#rig');
+        const pos = rig.getAttribute('position');
+        let step = 1;
+        if (direction === 'forward') pos.z -= step;
+        else if (direction === 'backward') pos.z += step;
+        else if (direction === 'left') pos.x -= step;
+        else if (direction === 'right') pos.x += step;
+        rig.setAttribute('position', pos);
+      }
+    </script>
+  </head>
+
+  <body>
+    <a-scene cursor="rayOrigin: mouse" raycaster="objects: .clickable">
+      <!-- Preload Assets -->
+      <a-assets>
+        <img id="sky" src="assets/sky-blue-clear-white.jpg">
+        <img id="img1" src="assets/1.jpg">
+        <img id="img2" src="assets/2.jpg">
+        <img id="img3" src="assets/3.jpg">
+        <img id="img4" src="assets/4.jpg">
+        <img id="img5" src="assets/5.jpg">
+        <img id="img6" src="assets/6.jpg">
+        <a-asset-item id="castle" src="models/castle_village_scene.glb"></a-asset-item>
+        <a-asset-item id="natalie" src="models/natalie_from_a_minecraft_movie.glb"></a-asset-item>
+        <a-asset-item id="steve" src="models/steve_from_a_minecraft_movie.glb"></a-asset-item>
+        <a-asset-item id="garrett" src="models/garrett_from_a_minecraft_movie.glb"></a-asset-item>
+        <a-asset-item id="elle" src="models/elle_from_a_minecraft_movie.glb"></a-asset-item>
+        <a-asset-item id="truck" src="models/pickup_truck.glb"></a-asset-item>
+      </a-assets>
+
+      <!-- Sky -->
+      <a-sky src="#sky"></a-sky>
+      <a-sound src="url(audio/gentle-fields-194622.mp3)" autoplay="true" loop="true" volume="100"></a-sound>
+
+      <!-- Castle -->
+      <a-entity gltf-model="#castle"
+                position="0 0 0"
+                scale="30 30 30">
+      </a-entity>
+
+      <!-- Garrett dengan animasi -->
+      <a-entity id="garrett"
+                gltf-model="#garrett"
+                position="-2 1 -8"
+                scale="0.5 0.5 0.5"
+                class="clickable"
+                animation-mixer
+                show-questions>
+      </a-entity>
+
+      <!-- Pertanyaan di atas Garrett -->
+      <a-entity id="pertanyaan-garrett" position="-2 3.5 -8" visible="false">
+        <!-- Background untuk text -->
+        <a-plane 
+          width="8" 
+          height="3" 
+          color="white" 
+          opacity="0.9"
+          position="0 0 -0.1">
+        </a-plane>
+        
+        <!-- Text pertanyaan -->
+        <a-text 
+          value="Apa yang dimaksud dengan zaman praaksara?\n\nSebutkan dua contoh manusia purba di Indonesia!\n\nPada zaman apa manusia mulai bercocok tanam dan menetap?" 
+          align="center" 
+          color="black" 
+          width="8"
+          position="0 0 0">
+        </a-text>
+      </a-entity>
+
+      <!-- Natalie dengan animasi -->
+      <a-entity id="natalie"
+                gltf-model="#natalie"
+                position="-3 0 4"
+                scale="0.5 0.5 0.5"
+                class="clickable"
+                animation-mixer
+                jump-on-click> 
+      </a-entity>
+
+      <!-- Elle dengan animasi -->
+      <a-entity id="elle"
+                gltf-model="#elle"
+                position="-3 0 9"
+                scale="0.5 0.5 0.5"
+                class="clickable"
+                animation-mixer
+                show-semangat>
+      </a-entity>
+
+      <!-- Text SEMANGAT di atas Elle - POSISI DIPERBAIKI -->
+      <a-entity id="semangat-text" position="-3 3.5 9" visible="false">
+        <!-- Background untuk text -->
+        <a-plane 
+          width="4" 
+          height="1.5" 
+          color="#ff6b35" 
+          opacity="0.9"
+          position="0 0 -0.1">
+        </a-plane>
+        
+        <!-- Text SEMANGAT -->
+        <a-text 
+          value="SEMANGAT!" 
+          align="center" 
+          color="white" 
+          width="12"
+          position="0 0 0">
+        </a-text>
+      </a-entity>
+
+      <!-- Gambar Materi -->
+      <a-plane src="#img1" width="2.5" height="1.5" position="-4 0.80 16.300" rotation="0 0 0"></a-plane>
+      <a-plane src="#img2" width="2.5" height="1.5" position="-4.72 0.80 9" rotation="0 17 0"></a-plane>
+      <a-plane src="#img3" width="2.5" height="1.5" position="-4.48 0.80 4.112" rotation="0 8 0"></a-plane>
+      <a-plane src="#img4" width="2.5" height="1.5" position="1.70 0.80 7.5" rotation="0 -85 0"></a-plane>
+      <a-plane src="#img5" width="2.5" height="1.5" position="1.5 0.80 1.444" rotation="0 -34.5 0"></a-plane>
+      <a-plane src="#img6" width="2.5" height="1.5" position="-4 0.80 -7.125" rotation="0 15 0"></a-plane>
+
+      <!-- Steve dengan animasi -->
+      <a-entity id="steve"
+                gltf-model="#steve"
+                position="-1 0 -1.6"
+                scale="0.5 0.5 0.5"
+                rotation="0.000 0.000 0.000"
+                class="clickable"
+                animation-mixer
+                move-on-click="to: -1 0 4">
+      </a-entity>
+
+      <!-- Truck -->
+      <a-entity id="truck"
+                gltf-model="#truck"
+                position="1 0 18.500"
+                scale="1 1 1"
+                rotation="0 -88 -2"
+                class="clickable"
+                move-on-click="to: -5 0 18">
+      </a-entity>
+
+      <!-- Kamera -->
+      <a-entity id="rig" movement-controls position="-1.5 1.6 22">
+        <a-entity camera wasd-controls look-controls></a-entity>
+      </a-entity>
+    </a-scene>
+
+    <!-- Tombol kontrol -->
+    <div id="btn-up" class="control-btn" onclick="moveCamera('forward')">^</div>
+    <div id="btn-down" class="control-btn" onclick="moveCamera('backward')">v</div>
+    <div id="btn-left" class="control-btn" onclick="moveCamera('left')"><</div>
+    <div id="btn-right" class="control-btn" onclick="moveCamera('right')">></div>
+  </body>
+</html>
